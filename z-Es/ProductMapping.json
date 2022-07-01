@@ -1,0 +1,88 @@
+
+#建立产品的关系映射表
+PUT products
+{
+  "mappings": {
+    "properties": {
+      "id":{
+        "type": "long"
+      },
+      "title":{
+        "type": "text",
+        "analyzer": "ik_smart"
+      },
+      "brandId":{
+        "type": "keyword"
+      },
+      "brandTitle":{
+        "type": "keyword"
+      },
+      "oneSortId":{
+        "type": "keyword"
+      },
+      "oneSortTitle":{
+        "type": "keyword"
+      },
+      "twoSortId":{
+        "type": "keyword"
+      },
+      "twoSortTitle":{
+        "type": "keyword"
+      },
+      "threeSortId":{
+        "type": "keyword"
+      },
+      "threeSortTitle":{
+        "type": "keyword"
+      },
+      "picture":{
+        "type": "keyword"
+      },
+      "pictureName":{
+        "type": "keyword"
+      },
+      "price":{
+        "type": "keyword"
+      },
+      "status":{
+        "type": "keyword"
+      },
+      "hasStock":{
+        "type": "keyword"
+      },
+      "stock":{
+        "type": "long"
+      },
+      "attrList":{
+        "type": "nested",
+        "properties": {
+          "attrId":{
+            "type":"keyword"
+          },
+          "attrTitle":{
+            "type":"keyword"
+          },
+          "attrGroupId":{
+            "type":"keyword"
+          },
+          "attrGroupTitle":{
+            "type":"keyword"
+          }
+        }
+      }
+    }
+  }
+}
+
+
+# 查询表的关系结构
+GET products/_mapping
+
+
+#查询所有信息
+GET /products/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}

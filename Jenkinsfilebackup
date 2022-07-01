@@ -1,0 +1,103 @@
+//gitlab的凭证
+def git_auth = "05c8c680-94c5-4d9d-a09e-8e4ee0a069e5"
+//gitLab SSH地址
+def git_url= "git@192.168.42.129:root/winter.git"
+
+def tag = "latest"
+def harbor_url = "192.168.42.131:85"
+def harbor_project = "winter"
+def harbor_auth = "7a382897-7e50-4377-917c-95e9fe0c9bd4"
+
+node {
+    //获取project_name变量，得到当前项目的名称,split根据(,)切割每个项目名的，会被切割成为一个数组
+    def selectdProjectNames = "${project_name}".split(",")
+    //获取当前选择服务器的名称,split根据(,)切割每个项目名的，会被切割成为一个数组
+    def selectedServer = "${publish_server}".split(",")
+
+	stage('拉取代码') {
+		//分支的变量参数
+		checkout([$class: 'GitSCM', branches: [[name: "*/${branch}"]],
+			doGenerateSubmoduleConfigurations: false, 
+			extensions: [], 
+			submoduleCfg: [],
+			//登陆凭证
+			userRemoteConfigs: [[credentialsId: "${git_auth}", url:"${git_url}"]]])
+	}
+    stage('代码审查') {
+        // 通过循环，将每个项目进行一次代码审查
+        for(int i=0;i < selectdProjectNames.length;i++){
+            //没遍历一次，会得到项目的名字和端口
+            def projectName = selectdProjectNames[i];
+            //数组下标为0，得到项目名字
+            def curentProjectName = "${projectName}".split("@")[0]
+            //定义一个当前Jenkins审查工具，名称是自定义的，在Jenkins的全局工具设置中：Global Tool Configuration
+            def scannerHome = tool 'SonarQube-Scanner'
+            //引用当前sonarqube运行的环境：全局环境变量 SonarQube servers的名字
+            withSonarQubeEnv('SonarServer') {
+                sh """
+                    cd ${curentProjectName}
+                    ${scannerHome}/bin/sonar-scanner
+                """
+            }
+        }
+    }
+    stage('安装编译公共子工程') {
+        //将公共类放入到仓库中，所以使用install指令
+        sh "mvn -f common clean install"
+    }
+
+    stage('打包服务项目,上传镜像') {
+        //对获取project_name变量，得到当前项目的名称,split根据(,)切割每个项目名的，会被切割成为一个数组，进行for循环
+        for(int i=0; i<selectdProjectNames.length; i++){
+            //每遍历一次，会得到项目的名字和端口
+            def projectInfo = selectdProjectNames[i];
+            //数组下标为0，得到项目名字
+            def curentProjectName = "${projectInfo}".split("@")[0];
+            //数组下标为0，得到项目端口
+            def curentProjectPort = "${projectInfo}".split("@")[1];
+            // 打包并且生成镜像文件
+            sh "mvn -f ${curentProjectName} clean package dockerfile:build"
+            //定义镜像名称
+            def imageName = "${curentProjectName}:${tag}"
+            //打标签
+            sh "docker tag ${imageName} ${harbor_url}/${harbor_project}/${imageName}"
+            //把镜像推送到Harbor
+            withCredentials([usernamePassword(credentialsId: "${harbor_auth}", passwordVariable: 'password', usernameVariable: 'username')]) {
+                //登录到Harbor
+                sh "docker login -u ${username} -p ${password} ${harbor_url}"
+                //镜像上传
+                sh "docker push ${harbor_url}/${harbor_project}/${imageName}"
+                sh "echo 镜像上传成功"
+            }
+        }
+    }
+    stage('部署应用') {
+        //部署应用
+        for(int i=0;i<selectdProjectNames.length;i++){
+            //每遍历一次，会得到项目的名字和端口
+            def projectInfo = selectdProjectNames[i];
+            //数组下标为0，得到项目名字
+            def curentProjectName = "${projectInfo}".split("@")[0]
+            //数组下标为0，得到项目端口
+            def curentProjectPort = "${projectInfo}".split("@")[1]
+
+            for(int j=0;j<selectedServer.length;j++){
+
+                def currentServerName =selectedServer[j]
+                //加上参数选择不同的服务器
+                // --spring.profile.active=eureka-server
+                def activeProfile = "--spring.profile.active="
+                //
+                if(currentServerName=="master_server"){
+                    activeProfile = 0
+                }else if (currentServerName=="slave_server"){
+                    activeProfile = 1
+                }
+                sh "echo 部署应用 ${currentServerName} ${curentProjectName} ${curentProjectPort}"
+                sshPublisher(publishers: [sshPublisherDesc(configName: "${currentServerName}", transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "/opt/jenkins_shell/deploy.sh $harbor_url $harbor_project $curentProjectName $tag $curentProjectPort", execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+                sh "echo 部署应用成功"
+            }
+        }
+    }
+
+}

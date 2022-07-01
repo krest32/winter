@@ -1,0 +1,84 @@
+server:
+  port: 8010
+
+
+spring:
+  rabbitmq:
+    host: 121.196.111.229
+    port: 5672
+    username: root
+    password: 123456
+    # 开启发送者确认
+    publisher-confirms: true
+    #开启发送消息抵达队列的确认
+    publisher-returns: true
+    listener:
+      simple:
+        # 手动确认模式
+        acknowledge-mode: manual
+    template:
+      # 只要抵达队列，以异步的方式游戏安安回调我们这个returnconfirm
+      mandatory: true
+
+  application:
+    name: others
+# 配置数据库
+  datasource:
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/winter?serverTimezone=GMT%2B8
+# 修正返回数据的时间格式
+  jackson:
+    time-zone: GMT+8
+    date-format: yyyy-MM-dd HH:mm:ss
+# 配置redis信息
+  redis:
+    database: 0
+    timeout: 180000
+    host: 192.168.42.132
+    port: 6379
+    lettuce:
+      pool:
+        max-active: 20
+        max-wait: -1
+        max-idle: 5
+        min-idle: 0
+  servlet:
+    multipart:
+      # 最大上传单个文件大小：默认1M
+      max-file-size: 1024MB
+      # 最大置总上传的数据大小 ：默认10M
+      max-request-size: 1024MB
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+
+
+# 开启执行sql的日志
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+#配置mapper xml文件的路径
+  mapper-locations: classpath:com/krest/others/mapper/xml/*.xml
+
+
+# 配置AliYun Oss
+#阿里云 OSS
+#不同的服务器，地址不同
+#bucket可以在控制台创建，也可以使用java代码创建
+aliyun:
+  oss:
+    file:
+      endpoint: oss-cn-beijing.aliyuncs.com
+      keyid: LTAI4GGrSpTcJz3m5j6aGmeN
+      keysecret: fl2rnbHvYcijqLngBzUZAKTxB8iihW
+      bucketname: duxin2010
+  #阿里云 vod
+  #不同的服务器，地址不同
+  vod:
+    file:
+      keyid: LTAI4GGrSpTcJz3m5j6aGmeN
+      keysecret: fl2rnbHvYcijqLngBzUZAKTxB8iihW
+
